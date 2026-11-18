@@ -1,63 +1,75 @@
-# FastReads Taso — Codex repository instructions
+# FastReads Taso — Codex maintenance instructions
 
-## Purpose and instruction boundaries
+## Project status and scope
 
-Build and maintain a **local, lightweight, axial-only NIfTI review viewer** for a long-TE/3D FLAIR evaluation. Its users are physician reviewers; the software facilitates viewing and recording reads, not diagnosis or image processing. Read `TASK.md` for the **initial implementation scope and acceptance criteria**. After initialization, treat this file as the continuing maintenance guide and update `TASK.md` to reflect completed work or replace it with a scoped task file.
+FastReads Taso is an **already implemented** local, offline, axial-only NIfTI review viewer for conventional FLAIR and long-TE/3D-derived FLAIR. The initial MVP has been built. Future work is incremental maintenance, bug fixing, verification, and incorporation of **explicitly confirmed** changes from Ilya/Manuel. Do not reinitialize the project or implement the original MVP specification again.
 
-This repository is `fastreads-taso`. The sibling `../fastreads` repository is the **primary read-only source** for the original Python + single-page NiiVue viewer. The sibling `../fastreads-jcb` repository is an **optional read-only reference** for more robust data discovery, review saving, access validation, cross-platform startup, and shipment packaging. Sibling folders may not exist in all Codex environments: work from the copied baseline files here and do not depend on siblings at runtime. **Never modify sibling repositories.** Do not import JCB's application wholesale.
+The software supports physician image review and note-taking; it does not perform image processing or clinical diagnosis and has not been clinically validated.
 
-## Architecture and scope
+Read the relevant current code and `README.md` before each change. Treat `README.md` as the description of supported behavior, data layout, usage, known limitations, and physician questions; **confirm behavior against the implementation and tests rather than assuming documentation is always current**. This file governs how to make changes, not a standing request to implement missing features. A new user request/task prompt supplies the scope for each session.
 
-- Prefer the original simple architecture: `server.py` using Python 3.10+ standard library, `viewer.html` with vanilla HTML/CSS/JavaScript, and a locally bundled `niivue.umd.js` (respect its third-party license). Keep runtime offline and bind HTTP to `127.0.0.1`, preferably on port `8002` to avoid the older viewers on `8000`.
-- Keep the original Windows, macOS, and Linux startup paths working: `Start_Viewer.bat`, `Start_Viewer.command`, and `Start_Viewer.sh`. Rework their URLs, application identity, and readiness checks; no PET-specific strings or assumptions should survive. Optional Windows stop launcher may be retained if it works correctly.
-- Do not introduce Node/npm, Vite, React, databases, or heavyweight imaging Python dependencies without a demonstrated need. If a new dependency is unavoidable, explain and document it before introducing it.
-- Reuse useful original navigation and display controls, not its PET/MNI/Centiloid datasets, overlays, PET-specific controls, clinical labels, or hard-coded paths.
-- Preserve code provenance and NiiVue license/attribution. Build a self-contained shipment without coupling to sibling repositories, internet services, or developer-only tools.
+## Current architecture
 
-## Data contract
+Keep the existing simple, self-contained architecture unless a change genuinely requires otherwise:
 
-Data are **local, untracked, and supplied separately**, relative to this repository's `server.py`:
+- `server.py`: Python 3.10+ standard-library local HTTP server, controlled file discovery, review state/API, and TSV export.
+- `viewer.html` and `viewer.js`: vanilla browser UI, axial NiiVue rendering and review workflow.
+- `niivue.umd.js`: locally bundled, licensed NiiVue renderer. Preserve the upstream notices and `licenses/NiiVue-LICENSE.txt`.
+- `launch.py` with `Start_Viewer.bat`, `Start_Viewer.command`, `Start_Viewer.sh`: cross-platform launch and same-installation readiness checks.
+- `tests/`: Python and optional synthetic-data browser tests.
+- `README.md`: operational documentation; `NOTICE.md`: code provenance and third-party notices.
 
-```text
-data/
-  <INDD>/
-    P1/
-      flair2d.nii.gz
-      3d_resliced.nii.gz
-      spcX_ir_2mm_p4_te980_corr.nii.gz    # optional; not automatically substituted
-    P2/
-      flair2d.nii.gz
-      3d_resliced.nii.gz
-    ...
+Runtime requires no Node/npm, frontend build, pip packages, internet service, database, or sibling repository. The local server uses `127.0.0.1:8002`. Do not introduce heavyweight dependencies, a frontend framework, or a general configuration subsystem without a demonstrated requirement and user approval.
+
+The neighboring `../fastreads` and `../fastreads-jcb` repositories are **optional, read-only historical references**, not required dependencies. Do not modify them or import their implementations wholesale.
+
+## Data and review contract — preserve unless explicitly revised
+
+- Local, Git-ignored input directory is `data/<INDD>/P<n>/`, where `P1`, `P2`, etc. are distinct visits. Accepted image filenames are `flair2d.nii.gz` (reference) and `3d_resliced.nii.gz` (candidate). `spcX_ir_2mm_p4_te980_corr.nii.gz` is optional and is **not** automatically substituted or included in normal reading queues.
+- Keep **axial-only** display, correct interpretation of NIfTI spatial metadata, one displayed volume per reading task, and candidate initial window `-200 / 200`. Never silently resample, register, flip, normalize or modify source images.
+- Maintain two separate review protocols: `independent` (blinded, individually randomized reference/candidate tasks) and `candidate-only` (long-TE-only). Preserve reproducible persisted queue/order, opaque task labels during blinded reading, correct underlying INDD/visit/sequence provenance, per-mode review separation, and previously completed work when data are added or missing.
+- Review fields currently consist of notes, completed/reviewed, and flag-for-follow-up. Do not invent clinical scoring categories. The true sequence/visit mapping may appear in appropriately gated TSV exports, not on the blinded reading screen.
+- Review state and assignments are written under `state/`; preserve atomic writes, revision/concurrent-write checks, one-step backup behavior, fail-closed handling of corrupt state, and prevention of lost unsaved edits. Do not silently regenerate or overwrite persisted assignments or reviews.
+- The application is intended for one reviewer per local copy. Do not add multi-user coordination or claim that masking is stronger than the current application-level blinding without a separately defined requirement.
+
+## Privacy and security invariants
+
+Treat all real images, patient/visit identifiers, review results, assignments, exports, reports, screenshots, and locally derived metadata as sensitive. Never commit, upload, log, screenshot, or include them in tests or examples. Use generated synthetic/de-identified fixtures only; do not access the clinical Box folder from Codex.
+
+Retain `.gitignore` protections for `data/`, `state/`, exports, backups, archives, and medical image/report formats. Never bypass ignores with `git add -f`. Keep the HTTP service loopback-only; enforce discovered-file allowlists and path/symlink restrictions. Preserve appropriate no-store and browser-origin protections. Do not add remote endpoints, CDNs, telemetry, analytics, cloud storage or arbitrary filesystem access.
+
+Do not modify real input data or destructively reorganize persisted review state. No code or dataset should be published, pushed, or packaged with clinical data without explicit direction. Preserve license/provenance documentation during distribution changes.
+
+## How to approach future changes
+
+1. Read the user’s actual new request and inspect the relevant code, tests, and README. Scope the smallest coherent change; identify implications for blinding, task identity, persisted state, exports, launchers, and prior records.
+2. Clearly distinguish **confirmed physician requirements** from plausible interpretations or engineering preferences. If a requirement is unresolved, retain the existing behavior where safe; do not silently settle study-design or grading decisions.
+3. Prefer focused edits and regression tests over rewrites. Keep UI, API, persistence, and documentation consistent. If modifying persisted state or TSV schema, plan backward compatibility and verify existing records survive; do not reset them for convenience.
+4. Update `README.md` when user-visible behavior, input layout, installation, exports, limitations or physician questions change. Add or revise tests for each changed contract. Do not create a new perpetual task/status Markdown file for routine changes.
+5. Before finishing, report files changed, checks actually run, untested platforms/browser behavior, and any outstanding physician decisions. Do not claim tests passed without executing them. Do not commit/push or open a release unless explicitly asked.
+
+## Validation
+
+Run applicable checks after code changes (some require installed development tools):
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m py_compile server.py launch.py tests/*.py
+bash -n Start_Viewer.sh Start_Viewer.command
+node --check viewer.js
+git diff --check
+git ls-files data state
 ```
 
-`INDD` is the source patient identifier; `P1 ... Pn` are distinct sequential scan visits. Discover only actual matching visit directories and exact supported NIfTI files. Some sequences or visits may be absent; report missing inputs clearly and do not make up or silently substitute files. The primary comparison is between `flair2d.nii.gz` (reference conventional FLAIR) and `3d_resliced.nii.gz` (long-TE/3D-derived image). The third file is the optional full 3D acquisition and is **not** the comparison candidate unless explicitly requested later.
+For viewer behavior changes, also run the optional synthetic-data WebGL browser checks when Chrome/Node are available:
 
-A review item is identified internally by **INDD + visit + actual sequence**. Never conflate visits or overwrite one sequence's record with another. Validate every requested file against the discovered allowlist, prevent path traversal and symlink escape, and never provide an arbitrary-path endpoint. Do not send the entire data directory listing or identifiable filesystem paths to the browser unnecessarily.
+```bash
+python3 tests/run_browser.py
+python3 tests/run_browser.py --empty
+```
 
-## Review behavior and integrity
+Verify the affected workflows, particularly independent/candidate-only mode isolation, stable review/task identities on restart, safe data discovery, save/reload/export, axial orientation and display defaults, and that no sensitive files were added to Git. State any Windows, macOS, Linux, or manual physician visual QA that was not actually performed.
 
-- **Axial display only**. Honor NIfTI spatial orientation; do not improvise slice flips or claim images are aligned. Do not do resampling, registration, segmentation, or quantitative analysis in this viewer.
-- The initial intensity display for `3d_resliced.nii.gz` is `min=-200`, `max=200`; the reader must be able to adjust its display. Do not apply this range to `flair2d.nii.gz` unless independently justified.
-- The design must support **independent, randomized reading** of the two sequences to limit bias. The normal reading screen shows only **one image/sequence per task**, not a synchronized comparison or preview of the companion sequence. Hide the actual filename/sequence identity and any other obvious cues that reveal allocation while a blinded read is ongoing; the exported result must retain the true sequence identity.
-- Randomization order must be reproducible and **persisted**, not reshuffled on browser refresh/restart. Persist any mapping from opaque review-task IDs to true INDD/visit/sequence only on the local backend. Ensure separate records for each task. If new data are added later, preserve existing review task IDs and completed reads.
-- The email also raises a possible **long-TE-only reading workflow** for a reviewer who already assessed conventional FLAIR. Make it possible to select this as a distinct review mode at session initialization, without pretending it is the same as the blinded two-sequence protocol. Do not silently change modes or merge their results.
-- Preserve sensible slice navigation, zoom/reset, crosshair toggle if useful, window/level adjustments, progress indicator, previous/next task, and clear missing-data/error states. Prevent asynchronous image loads from overwriting a newer selected task.
-- Record only minimal, **non-diagnostic** fields until the physician specifies a scoring rubric: free-text notes, reviewed/completed indicator, and optional flag-for-follow-up. Never invent clinical classifications or derive grades from the images.
-- Autosave or explicit save must be reliable and visibly acknowledged. Use atomic local writes for persisted progress; preserve all prior completed records, and provide a UTF-8 TSV export containing an unambiguous link between each review record and its INDD, visit, actual sequence, and selected mode. Quote/escape tabs and newlines safely. Preserve a recoverable local source-of-truth, e.g. JSON, separate from exports.
-- Do not implement a PDF/report viewer unless separately requested; the email mentions retrieving findings from an existing report, not necessarily displaying that report in this app.
+## Pending physician input
 
-## Privacy and safety
-
-- Treat NIfTI images, patient IDs, review results, assignments, reports, and real screenshots as potentially sensitive clinical data. **Never commit, push, upload, or include them in examples, tests, console logs, telemetry, analytics, or screenshots.** Use synthetic/de-identified data for tests. Never access the physician's Box share from the coding agent.
-- Keep `data/`, local state, review exports, archives that contain data, and sensitive file types ignored by Git. Do not bypass ignores with `git add -f`.
-- Do not expose a non-loopback server or add external script/CDN calls, third-party storage, user analytics, authentication services, or remotely callable APIs. HTTP responses containing images or review results should be uncached where appropriate.
-- Preserve local data on errors; never destructively reorganize clinical files. Do not imply clinical or diagnostic validation.
-
-## Development, validation, and delivery
-
-- At the start of a task, inspect the current files, read `TASK.md` if it applies, and briefly state the proposed changes and assumptions. Favor a small working increment over a broad rewrite. Keep new functionality maintainable and appropriately tested.
-- Before sign-off, verify: subject/visit discovery and natural P-number ordering; partial/missing sequences; safe paths; axial-only viewing; correct display defaults; independent/blinded tasks; stable randomized assignment on restart; distinct review keys; save/reload/export; no stale image responses; and launchers on supported operating systems as far as locally testable.
-- Implement backend tests with Python's `unittest` or similarly small tools, using *generated synthetic* NIfTI fixtures when useful. If browser tests cannot run, state exactly what still needs manual verification rather than claiming success.
-- Keep end-user startup independent of npm, `pip install`, and sibling repositories. Shipment generation, if added, must be code-only by default, verify the files being packaged, and require an unmistakable explicit opt-in before local clinical data are included.
-- Never push to GitHub, publish a release, upload data, or overwrite external content without the user's explicit instruction. At completion report changed files, observed tests, assumptions needing physician confirmation, and how to run the program.
+The initial implementation is **not a finalized clinical review protocol**. The rubric, exact reading/randomization protocol, handling of previously reviewed reference FLAIR, identity visibility, report access, finalization rules, and the optional full 3D acquisition's role remain subject to confirmation. See the current `README.md` for the detailed questions. Apply confirmed new decisions only through scoped tasks; update tests/documentation accordingly.

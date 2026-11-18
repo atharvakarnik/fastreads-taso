@@ -1,7 +1,0 @@
-# First Codex task — FastReads Taso
-
-Work only in `fastreads-taso`. Read `AGENTS.md` and `TASK.md` completely first, followed by the seeded original `viewer.html`, `server.py`, `niivue.umd.js`, and platform launcher scripts. Inspect `../fastreads` as a read-only primary reference and `../fastreads-jcb` as an optional read-only source of lessons about saving, safety, and packaging; do not change or import either sibling wholesale.
-
-First, give a short preflight summary of the reusable baseline components, main architectural decisions, and uncertainties in the May 29 email brief. Then implement the **smallest complete, working MVP** described in `TASK.md`, with axial-only, sequence-specific review, persistent randomized independent-read tasks, a separate candidate-only mode, safe local review storage/TSV export, and cross-platform launchers. Reuse the original zero-extra-runtime-dependency architecture wherever practical. Do not invent clinical grades, access Box, process clinical data, introduce unnecessary packages, or create side-by-side comparison as the primary review mode.
-
-Use synthetic NIfTI data for automated testing. Run and report the checks you can actually execute, fix failures, and explain any remaining manual UI/OS tests. Create an accurate `README.md`. Keep all sensitive data ignored. Do not commit, push, upload, or publish anything. At the end summarize changed files, tested outcomes, remaining risks, and exactly which clinical workflow questions need confirmation.
