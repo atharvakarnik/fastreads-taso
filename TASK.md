@@ -1,4 +1,4 @@
-# FastReads Taso — initial implementation specification
+# FastReads Taso — MVP specification and delivery status
 
 ## Source-grounded request (May 29, 2026 email thread)
 
@@ -58,3 +58,28 @@ A functioning **local, offline, axial-only NiiVue viewer** derived from the supp
 - Should prior reports/clinical findings ever be shown in the viewer, and if so, only after a blinded read is committed?
 
 Keep these as open decisions, not settled clinical requirements.
+
+## MVP delivery status — November 19, 2026
+
+Implemented locally. The original email requirements and open questions above remain the source scope; the following records engineering defaults and observed verification, not clinical approval.
+
+- Replaced PET/MNI-specific discovery, controls and fields with exact INDD/visit/sequence discovery, one-volume axial reading, opaque independent tasks and a distinct candidate-only protocol. The full acquisition stays excluded. Setup provides aggregate availability; identities stay out of the reading queue.
+- Kept Python 3.10+ standard-library runtime, vanilla HTML/JavaScript and the unchanged local NiiVue bundle. The small frontend script and common launcher logic are extracted into `viewer.js` and `launch.py` for readability. No runtime packages or build step were added.
+- Persisted per-mode seed/order/mappings and separate task reviews; new inputs append and removed inputs retain their records. Atomic JSON writes, one previous-state backup, process writer lock and revision conflict checks protect progress. Corrupt state fails closed. TSV export explicitly ends the reading view and requires acknowledgement of unblinding.
+- Restricted HTTP to loopback, exact static/API routes and discovered file allowlists. Added host/origin/fetch-site checks, per-process write token, no-store responses, CSP and silent request logging. Inputs and state remain local and Git-ignored. No clinical inputs or Box access were used.
+- Updated all three platform launchers. README covers exact data layout, running, protocol defaults, saving, export, restoring backups, code-only file handoff, limitations and physician questions. NOTICE and the full upstream NiiVue license preserve provenance.
+
+Observed checks:
+
+- `python3 -m unittest discover -s tests -v`: **15 passed** on macOS/Python 3.13, using generated synthetic NIfTI fixtures and temporary local folders. Includes natural P ordering, partial/missing files, excluded optional acquisition, exact filenames/case ambiguity, symlinks/traversal, opaque queues, persistent IDs/order, distinct modes/records, extension/removal, save/reload/UTF-8 TSV round-trip, conflicts, simulated failed atomic replacement, corrupt-state refusal and backup restoration. HTTP cases passed with loopback permission.
+- The same suite exercised the POSIX shell launcher in synthetic folders with spaces: fresh startup, health readiness, reuse of the same installation, rejection of a different installation on 8002, Ctrl+C handling and owned-server cleanup all passed.
+- `python3 tests/run_browser.py` and `python3 tests/run_browser.py --empty`: **passed** with installed headless Chrome WebGL2 and Node 23 as optional development tools (no npm packages). Synthetic sform axis permutations and qform fixtures rendered with expected RAS dimensions. Axial view/keyboard lock, radiological setting, single volume, masked labels, slices, zoom/reset, window adjustments/defaults, persisted review after reload, delayed decode not overwriting a newer task, failed-save draft retention/navigation blocking, export gate, separate candidate records and no external page requests passed. Empty-data initialization displayed layout guidance and disabled review controls. A synthetic-only screenshot was visually inspected; no real image screenshots were taken.
+- Python compilation, shell syntax checks, JavaScript syntax checks and `git diff --check` passed. `git check-ignore` confirmed representative data/state/export/report/screenshot/archive paths are ignored; `git ls-files` showed no sensitive files tracked. Nothing was staged, committed, pushed, uploaded or published. Sibling repositories were read only; NiiVue remains byte-identical to the seed.
+
+Still requiring manual verification before reader use:
+
+- Native Windows `.bat` launch/stop, Python detection and `msvcrt` state locking; native Linux desktop browser opening; macOS Finder double-click/OS quarantine behavior. macOS shell startup with browser suppression was executed.
+- Normal desktop browsing, mouse wheel/trackpad behavior, screen sizes, WebGL/GPU support, actual download/save location and backup restoration on the intended reader machines. Cross-check L/R and axial anatomical landmarks with a trusted synthetic fixture; automated dimension/renderer checks are not clinical orientation validation.
+- A physician must settle the rubric, protocol assignment/reviewer count, image versus visit/block randomization and separation/washout, handling of incomplete pairs, identity masking expectations, prior-report access/finalization rules and the optional full acquisition's role. See README for the exact questions.
+
+Known MVP limits: one reviewer per folder, explicit saves plus save-before-navigation, drafts lost after forced browser close, no immutable read-finalization/audit system, no image-content versioning, application-label blinding only, no guaranteed washout/separation for small incremental sets, and a one-step backup rather than backup history. These are documented defaults, not settled study-design decisions.
